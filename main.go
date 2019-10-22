@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
-	"ldap2ssh/cli"
-	"ldap2ssh/config"
-	"ldap2ssh/utils"
-	"ldap2ssh/vault"
+	"io/ioutil"
 	"log"
+	"path/filepath"
+	"strings"
+
+	"github.com/rldw/ldap2ssh/cli"
+	"github.com/rldw/ldap2ssh/config"
+	"github.com/rldw/ldap2ssh/utils"
+	"github.com/rldw/ldap2ssh/vault"
 )
 
 func main() {
@@ -15,21 +19,39 @@ func main() {
 	}
 
 	main := config.Configuration()
-	if !vault.TokenIsValid(main.VaultToken, main.VaultAddress) {
-		fmt.Println("Your vault token expired. Enter your JumpCloud credentials to render a new token:")
+	if vault.TokenIsValid(main.VaultToken, main.VaultAddress) {
+		fmt.Println("Using existing Vault token.")
+	} else {
+		fmt.Println("Missing or expired Vault token. Enter your JumpCloud credentials to render a new token:")
 		creds := cli.PromptJumpCloudCredentials(main.JumpCloudUser)
-		token := vault.Login(creds, main.VaultAddress)
-		main.VaultToken = token
+		main.VaultToken = vault.Login(creds, main.VaultAddress)
+		config.SaveMain(main)
 	}
 
 	// CHOOSE SSH KEY
+	chosenSSHKey := main.DefaultKey
 	sshDir := utils.GetSSHDir()
-	sshKeys := utils.ListPrivateKeys(sshDir)
-	chosenSSHKey := cli.Select("Private Key to Sign", sshKeys)
+	if main.DefaultKey == "" {
+		sshKeys := utils.ListPublicKeys(sshDir)
+		chosenSSHKey = cli.Select("Public Key to Sign", sshKeys, main.DefaultKey)
+	} else {
+		log.Printf("Using default_key = %s", chosenSSHKey)
+	}
+	keyfile := filepath.Join(sshDir, chosenSSHKey)
 
-	// SIGN SSH KEY
-	signedKey := vault.SignSSHKey(chosenSSHKey, main.VaultAddress, main.VaultToken)
-	log.Println("Signed Key", signedKey)
+	// CHOOSE SECTION
+	sections := config.Sections()
+	account := cli.Select("Account", sections, "")
+	endpoint := config.GetEndpoint(account)
 
-	// SAVE SSH KEY TO `chosenSSHKey`-cert.pub
+	// SIGN SSH KEY AND SAVE TO CERT
+	signedKey := vault.SignSSHKey(keyfile, endpoint, main.VaultAddress, main.VaultToken)
+	keyName := strings.TrimSuffix(keyfile, ".pub")
+	certfile := keyName + "-cert.pub"
+	cert := []byte(signedKey)
+	ioutil.WriteFile(certfile, cert, 0600)
+	fmt.Println("\nWrote signed key to", certfile)
+
+	validUntil := utils.ValidateCert(certfile)
+	fmt.Println("Certificate is valid until", validUntil)
 }

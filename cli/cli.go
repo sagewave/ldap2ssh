@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"ldap2ssh/vault"
+	"github.com/rldw/ldap2ssh/vault"
 
 	"github.com/AlecAivazis/survey"
 )
@@ -38,11 +38,12 @@ func StringRequired(message string) string {
 }
 
 // Select give selection of options
-func Select(message string, options []string) string {
+func Select(message string, options []string, defaultValue string) string {
 	selected := ""
 	prompt := &survey.Select{
 		Message: message,
 		Options: options,
+		Default: defaultValue,
 	}
 	survey.AskOne(prompt, &selected, survey.WithValidator(survey.Required))
 	return selected

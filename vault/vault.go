@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // Credentials for JumpCloud
@@ -59,7 +60,6 @@ func Login(creds Credentials, vaultAddr string) string {
 	var jsonBytes = []byte(jsonStr)
 
 	body := makeRequest(url, jsonBytes, "")
-	log.Println(body)
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
 	token := result["auth"].(map[string]interface{})["client_token"]
@@ -71,14 +71,50 @@ func TokenIsValid(token string, vaultAddr string) bool {
 	url := fmt.Sprintf("%s/v1/auth/token/lookup-self", vaultAddr)
 	body := makeGetRequest(url, token)
 	var result map[string]interface{}
-	json.Unmarshal(body, &result)
-	rawTTL := result["data"].(map[string]interface{})["ttl"]
-	ttl := fmt.Sprintf("%f", rawTTL)
+
+	err := json.Unmarshal(body, &result)
+	if err != nil {
+		return false
+	}
+
+	rawTTL, ok := result["data"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	ttl := fmt.Sprintf("%f", rawTTL["ttl"])
 	casted, _ := strconv.ParseFloat(ttl, 32)
 	return casted > 0
 }
 
 // SignSSHKey returns a signed SSH Key
-func SignSSHKey(keyfile string, vaultAddr string, vaultToken string) string {
-	return ""
+func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken string) string {
+	jsonStr := `{
+		"public_key": "%s",
+		"valid_principals": "ec2-user",
+		"extension": {
+			"permit-pty": "",
+			"permit-agent-forwarding": "",
+			"permit-port-forwarding": ""
+		}
+	}`
+
+	key, err := ioutil.ReadFile(keyfile)
+	if err != nil {
+		log.Panic("could not open key file", err)
+	}
+	keystring := string(key)
+	keystring = strings.TrimSpace(keystring)
+	url := fmt.Sprintf("%s/v1/%s/sign/ca", vaultAddr, endpoint)
+	formatted := fmt.Sprintf(jsonStr, keystring)
+	var payload = []byte(formatted)
+
+	body := makeRequest(url, payload, vaultToken)
+	var result map[string]interface{}
+	json.Unmarshal(body, &result)
+	data, ok := result["data"].(map[string]interface{})
+	if !ok {
+		log.Fatal("could not parse body", result, err)
+	}
+	signedKey := data["signed_key"]
+	return fmt.Sprintf("%v", signedKey)
 }

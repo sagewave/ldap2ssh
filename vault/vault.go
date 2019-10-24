@@ -17,7 +17,7 @@ type Credentials struct {
 	Password string
 }
 
-func makeRequest(url string, payload []byte, vaultToken string) []byte {
+func makePostRequest(url string, payload []byte, vaultToken string) []byte {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if vaultToken != "" {
 		req.Header.Set("X-Vault-Token", vaultToken)
@@ -59,7 +59,7 @@ func Login(creds Credentials, vaultAddr string) string {
 	jsonStr := fmt.Sprintf(`{"password":"%s"}`, creds.Password)
 	var jsonBytes = []byte(jsonStr)
 
-	body := makeRequest(url, jsonBytes, "")
+	body := makePostRequest(url, jsonBytes, "")
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
 	token := result["auth"].(map[string]interface{})["client_token"]
@@ -68,6 +68,10 @@ func Login(creds Credentials, vaultAddr string) string {
 
 // TokenIsValid validates a given Vault token and checks its expiration
 func TokenIsValid(token string, vaultAddr string) bool {
+	if token == "" {
+		return false
+	}
+
 	url := fmt.Sprintf("%s/v1/auth/token/lookup-self", vaultAddr)
 	body := makeGetRequest(url, token)
 	var result map[string]interface{}
@@ -104,11 +108,11 @@ func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken st
 	}
 	keystring := string(key)
 	keystring = strings.TrimSpace(keystring)
-	url := fmt.Sprintf("%s/v1/%s/sign/ca", vaultAddr, endpoint)
+	url := fmt.Sprintf("%s/v1/%s", vaultAddr, endpoint)
 	formatted := fmt.Sprintf(jsonStr, keystring)
-	var payload = []byte(formatted)
+	payload := []byte(formatted)
 
-	body := makeRequest(url, payload, vaultToken)
+	body := makePostRequest(url, payload, vaultToken)
 	var result map[string]interface{}
 	json.Unmarshal(body, &result)
 	data, ok := result["data"].(map[string]interface{})

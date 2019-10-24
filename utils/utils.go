@@ -13,24 +13,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func ListPrivateKeys(dir string) []string {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	var filtered []string
-	for _, file := range files {
-		path := filepath.Join(dir, file.Name())
-		if IsValidPrivateKey(path) {
-			filtered = append(filtered, file.Name())
-		}
-	}
-
-	return filtered
-}
-
 func ListPublicKeys(dir string) []string {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -48,16 +30,6 @@ func ListPublicKeys(dir string) []string {
 	}
 
 	return filtered
-}
-
-func IsValidPrivateKey(filename string) bool {
-	privateBytes, err := ioutil.ReadFile(filename)
-	_, err = ssh.ParsePrivateKey(privateBytes)
-	if err != nil {
-		// log.Print(err)
-		return false
-	}
-	return true
 }
 
 func IsValidPublicKey(filename string) bool {

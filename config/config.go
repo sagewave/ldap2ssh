@@ -59,7 +59,9 @@ func Configuration() Main {
 // Sections returns all section names
 func Sections() []string {
 	cfg, _ := ini.Load(filename())
-	return cfg.SectionStrings()
+	return filter(cfg.SectionStrings(), func(v string) bool {
+		return v != "DEFAULT"
+	})
 }
 
 // GetEndpoint gets endpoint from given section
@@ -76,4 +78,14 @@ func SaveMain(main Main) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func filter(vs []string, f func(string) bool) []string {
+	vsf := make([]string, 0)
+	for _, v := range vs {
+		if f(v) {
+			vsf = append(vsf, v)
+		}
+	}
+	return vsf
 }

@@ -4,6 +4,7 @@ package main
 type SignFlags struct {
 	Account string
 	Key     string
+	Token   string
 }
 
 // ConfigureFlags flags used for the `configure` command

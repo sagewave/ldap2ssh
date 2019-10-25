@@ -40,8 +40,9 @@ func main() {
 	// `sign` command
 	cmdSign := app.Command("sign", "Sign a public key using Vault.")
 	signFlags := new(SignFlags)
-	cmdSign.Flag("account", "The account to generate a SSH certificate for (env: LDAP2SSH_ACCOUNT)").Envar("LDAP2SSH_ACCOUNT").Short('a').StringVar(&signFlags.Account)
-	cmdSign.Flag("key", "The SSH public key to sign (env: LDAP2SSH_KEY)").StringVar(&signFlags.Key)
+	cmdSign.Flag("account", "The account to generate a SSH certificate for").Short('a').StringVar(&signFlags.Account)
+	cmdSign.Flag("key", "The SSH public key to sign").StringVar(&signFlags.Key)
+	cmdSign.Flag("token", "Pass a Vault token instead of using one in the config").StringVar(&signFlags.Token)
 
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -51,13 +52,13 @@ func main() {
 
 	switch command {
 	case cmdSign.FullCommand():
-		sign()
+		sign(signFlags)
 	case cmdConfigure.FullCommand():
 		configure(configureFlags)
 	}
 }
 
-func sign() {
+func sign(signFlags *SignFlags) {
 	if !config.Exists() {
 		log.Fatal("could not find a .ldap2ssh config file")
 	}

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -42,11 +42,11 @@ func IsValidPublicKey(filename string) bool {
 }
 
 func GetHomeDir() string {
-	usr, err := user.Current()
+	dir, err := homedir.Dir()
 	if err != nil {
 		log.Fatal("Could not determine home directory", err)
 	}
-	return usr.HomeDir
+	return dir
 }
 
 func GetSSHDir() string {

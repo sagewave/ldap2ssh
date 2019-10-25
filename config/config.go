@@ -12,9 +12,10 @@ import (
 
 // Main section of the ini file
 type Main struct {
-	JumpCloudUser string `ini:"jumpcloud_username"`
+	User          string `ini:"username"`
 	VaultAddress  string `ini:"vault_address"`
 	VaultToken    string `ini:"vault_token"`
+	VaultEndpoint string `ini:"vault_endpoint"`
 	DefaultKey    string `ini:"default_key"`
 }
 

@@ -3,10 +3,11 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
@@ -18,15 +19,22 @@ import (
 
 var (
 	// Version tool version
-	Version = "0.1"
+	Version = "0.2"
 )
+
+func init() {
+	// Only log the warning severity or above.
+	log.SetLevel(log.WarnLevel)
+}
 
 func main() {
 	app := kingpin.New("ldap2ssh", "A command line tool for generating SSH certificates with vault.")
 	app.Version(Version)
+	app.Author("Rene Ludwig")
+	app.HelpFlag.Short('h')
 
 	// general settings
-	verbose := app.Flag("verbose", "Verbose output mode").Bool()
+	verbose := app.Flag("verbose", "Verbose output mode").Short('v').Bool()
 
 	// `configure` command
 	cmdConfigure := app.Command("configure", "Configure a new account.")
@@ -47,7 +55,10 @@ func main() {
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 
 	if *verbose {
-		log.Println("debug logging activated")
+		log.SetLevel(log.DebugLevel)
+		log.Debug("Debug logging activated")
+		log.Debug("Home directory: ", utils.GetHomeDir())
+		log.Debug("SSH directory: ", utils.GetSSHDir())
 	}
 
 	switch command {
@@ -60,37 +71,44 @@ func main() {
 
 func sign(signFlags *SignFlags) {
 	if !config.Exists() {
-		log.Fatal("could not find a .ldap2ssh config file")
+		log.Fatal("Could not find a config file, run `ldap2ssh configure` first.")
 	}
 
-	main := config.Configuration()
-	if vault.TokenIsValid(main.VaultToken, main.VaultAddress) {
+	// CHOOSE ACCOUNT
+	account := signFlags.Account
+	if account == "" {
+		accounts := config.Sections()
+		account = cli.Select("Account", accounts, accounts[0])
+	}
+
+	if !config.SectionExists(account) {
+		log.Fatalf("Account '%s' does not exist.", account)
+	}
+
+	sec := config.GetSection(account)
+	if vault.TokenIsValid(sec.VaultToken, sec.VaultAddress) {
 		fmt.Print("Using existing Vault token found in ~/.ldap2ssh\n\n")
 	} else {
 		fmt.Print("Missing or expired Vault token. Enter your JumpCloud credentials to render a new token:\n\n")
-		creds := cli.PromptJumpCloudCredentials(main.JumpCloudUser)
-		main.VaultToken = vault.Login(creds, main.VaultAddress)
-		config.SaveMain(main)
+		creds := cli.PromptJumpCloudCredentials(sec.User)
+		sec.VaultToken = vault.Login(creds, sec.VaultAddress)
+		config.SaveSection(account, &sec)
 	}
 
 	// CHOOSE SSH KEY
-	chosenSSHKey := main.DefaultKey
+	chosenSSHKey := sec.DefaultKey
 	sshDir := utils.GetSSHDir()
-	if main.DefaultKey == "" {
+	if sec.DefaultKey == "" {
 		sshKeys := utils.ListPublicKeys(sshDir)
-		chosenSSHKey = cli.Select("Public Key to Sign", sshKeys, main.DefaultKey)
+		chosenSSHKey = cli.Select("Public Key to Sign", sshKeys, sec.DefaultKey)
 	} else {
-		fmt.Printf("Using default key %s\n\n", chosenSSHKey)
+		fmt.Printf("Using configured default key %s\n\n", chosenSSHKey)
 	}
 	keyfile := filepath.Join(sshDir, chosenSSHKey)
 
-	// CHOOSE ACCOUNT
-	accounts := config.Sections()
-	account := cli.Select("Account", accounts, accounts[0])
-	endpoint := config.GetEndpoint(account)
-
 	// SIGN SSH KEY AND SAVE TO CERT
-	signedKey := vault.SignSSHKey(keyfile, endpoint, main.VaultAddress, main.VaultToken)
+	endpoint := sec.VaultEndpoint
+	signedKey := vault.SignSSHKey(keyfile, endpoint, sec.VaultAddress, sec.VaultToken)
 	keyName := strings.TrimSuffix(keyfile, ".pub")
 	certfile := keyName + "-cert.pub"
 	cert := []byte(signedKey)
@@ -102,9 +120,13 @@ func sign(signFlags *SignFlags) {
 }
 
 func configure(configureFlags *ConfigureFlags) {
-	fmt.Println("account: " + configureFlags.Account)
-	fmt.Println("user: " + configureFlags.User)
-	fmt.Println("vault address: " + configureFlags.VaultAddress)
-	fmt.Println("vault endpoint: " + configureFlags.VaultEndpoint)
-	fmt.Println("default key: " + configureFlags.DefaultKey)
+	sec := &config.Section{
+		User:          configureFlags.User,
+		VaultAddress:  configureFlags.VaultAddress,
+		VaultEndpoint: configureFlags.VaultEndpoint,
+		DefaultKey:    configureFlags.DefaultKey,
+	}
+
+	log.Debugf("section: %v", sec)
+	config.SaveSection(configureFlags.Account, sec)
 }

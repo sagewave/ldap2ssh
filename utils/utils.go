@@ -3,11 +3,12 @@ package utils
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh"

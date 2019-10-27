@@ -1,17 +1,19 @@
 package config
 
 import (
-	"log"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/rldw/ldap2ssh/utils"
 
 	"gopkg.in/ini.v1"
 )
 
-// Main section of the ini file
-type Main struct {
+// Section of the config file
+type Section struct {
 	User          string `ini:"username"`
 	VaultAddress  string `ini:"vault_address"`
 	VaultToken    string `ini:"vault_token"`
@@ -30,31 +32,22 @@ func Exists() bool {
 }
 
 func filename() string {
-	result := filepath.Join(utils.GetHomeDir(), ".ldap2ssh")
-	return result
+	return filepath.Join(utils.GetHomeDir(), ".ldap2ssh")
 }
 
-// Read the config file
-func Read() interface{} {
-	cfg, err := ini.Load(filename())
-	if err != nil {
-		log.Println("failed to read config file", err)
-	}
-	return cfg
-}
-
-// Configuration returns the main section in the ini file
-func Configuration() Main {
+// GetSection returns a section of the Config
+func GetSection(name string) Section {
 	cfg, _ := ini.Load(filename())
-	c := &Main{
+	sec := &Section{
 		VaultToken: "",
 		DefaultKey: "",
+		User:       "",
 	}
-	err := cfg.Section("").MapTo(c)
+	err := cfg.Section(name).MapTo(sec)
 	if err != nil {
-		log.Println("error mapping main section", err)
+		log.Fatalf("Error mapping section %s to Section", name)
 	}
-	return *c
+	return *sec
 }
 
 // Sections returns all section names
@@ -65,20 +58,34 @@ func Sections() []string {
 	})
 }
 
-// GetEndpoint gets endpoint from given section
-func GetEndpoint(section string) string {
-	cfg, _ := ini.Load(filename())
-	return cfg.Section(section).Key("endpoint").String()
+// SectionExists checks if a section with the given name exists in the config
+func SectionExists(name string) bool {
+	sections := Sections()
+	return any(sections, func(v string) bool {
+		return v == name
+	})
 }
 
-// SaveMain saves the main config section
-func SaveMain(main Main) {
-	cfg, _ := ini.Load(filename())
-	err := ini.ReflectFrom(cfg, &main)
-	cfg.SaveTo(filename())
+// CreateEmpty config file
+func CreateEmpty(name string) {
+	err := ioutil.WriteFile(name, []byte(""), 0600)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Unable to write new config file: %v", err)
 	}
+}
+
+// SaveSection saves a given section to the config file
+func SaveSection(name string, sec *Section) {
+	if !Exists() {
+		CreateEmpty(filename())
+	}
+
+	cfg, _ := ini.Load(filename())
+	err := cfg.Section(name).ReflectFrom(sec)
+	if err != nil {
+		log.Fatal("Could not save section to config file: ", err)
+	}
+	cfg.SaveTo(filename())
 }
 
 func filter(vs []string, f func(string) bool) []string {
@@ -89,4 +96,13 @@ func filter(vs []string, f func(string) bool) []string {
 		}
 	}
 	return vsf
+}
+
+func any(vs []string, f func(string) bool) bool {
+	for _, v := range vs {
+		if f(v) {
+			return true
+		}
+	}
+	return false
 }

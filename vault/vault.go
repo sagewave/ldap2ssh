@@ -2,13 +2,14 @@ package vault
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/tidwall/gjson"
 )
 
 // Credentials for JumpCloud
@@ -17,7 +18,7 @@ type Credentials struct {
 	Password string
 }
 
-func makePostRequest(url string, payload []byte, vaultToken string) []byte {
+func makePostRequest(url string, payload []byte, vaultToken string) string {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	if vaultToken != "" {
 		req.Header.Set("X-Vault-Token", vaultToken)
@@ -25,17 +26,19 @@ func makePostRequest(url string, payload []byte, vaultToken string) []byte {
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	log.Debugf("Making post request to %v", url)
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error making post request: %v", err)
 	}
-	defer resp.Body.Close()
 
+	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
-	return body
+	log.Debugf("Post request response body: %v", string(body))
+	return string(body)
 }
 
-func makeGetRequest(url string, vaultToken string) []byte {
+func makeGetRequest(url string, vaultToken string) string {
 	req, err := http.NewRequest("GET", url, bytes.NewBuffer([]byte("")))
 	if vaultToken != "" {
 		req.Header.Set("X-Vault-Token", vaultToken)
@@ -43,14 +46,16 @@ func makeGetRequest(url string, vaultToken string) []byte {
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
+	log.Debugf("Making get request to %v", url)
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error making get request to: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	return body
+	log.Debugf("Get request response body: %v", string(body))
+	return string(body)
 }
 
 // Login to vault
@@ -60,34 +65,33 @@ func Login(creds Credentials, vaultAddr string) string {
 	var jsonBytes = []byte(jsonStr)
 
 	body := makePostRequest(url, jsonBytes, "")
-	var result map[string]interface{}
-	json.Unmarshal(body, &result)
-	token := result["auth"].(map[string]interface{})["client_token"]
-	return fmt.Sprintf("%v", token)
+	token := gjson.Get(body, "auth.client_token")
+	err := gjson.Get(body, "errors")
+	if err.Exists() {
+		log.Fatal("Vault returned an error during the login: ", err.String())
+	}
+
+	return token.String()
 }
 
 // TokenIsValid validates a given Vault token and checks its expiration
 func TokenIsValid(token string, vaultAddr string) bool {
 	if token == "" {
+		log.Debug("Empty token given for validation")
 		return false
 	}
 
 	url := fmt.Sprintf("%s/v1/auth/token/lookup-self", vaultAddr)
 	body := makeGetRequest(url, token)
-	var result map[string]interface{}
-
-	err := json.Unmarshal(body, &result)
-	if err != nil {
+	err := gjson.Get(body, "errors")
+	if err.Exists() {
+		log.Debug("Could not validate Vault token: ", err.String())
 		return false
 	}
 
-	rawTTL, ok := result["data"].(map[string]interface{})
-	if !ok {
-		return false
-	}
-	ttl := fmt.Sprintf("%f", rawTTL["ttl"])
-	casted, _ := strconv.ParseFloat(ttl, 32)
-	return casted > 0
+	ttl := gjson.Get(body, "data.ttl")
+	log.Debug("Vault token TTL: ", ttl.Int())
+	return ttl.Int() > 0
 }
 
 // SignSSHKey returns a signed SSH Key
@@ -104,8 +108,9 @@ func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken st
 
 	key, err := ioutil.ReadFile(keyfile)
 	if err != nil {
-		log.Panic("could not open key file", err)
+		log.Panic("Could not read key file", err)
 	}
+
 	keystring := string(key)
 	keystring = strings.TrimSpace(keystring)
 	url := fmt.Sprintf("%s/v1/%s", vaultAddr, endpoint)
@@ -113,12 +118,11 @@ func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken st
 	payload := []byte(formatted)
 
 	body := makePostRequest(url, payload, vaultToken)
-	var result map[string]interface{}
-	json.Unmarshal(body, &result)
-	data, ok := result["data"].(map[string]interface{})
-	if !ok {
-		log.Fatal("could not parse body", result, err)
+	vaultErr := gjson.Get(body, "errors")
+	if vaultErr.Exists() {
+		log.Fatal("Could not create certificate: ", vaultErr.String())
 	}
-	signedKey := data["signed_key"]
-	return fmt.Sprintf("%v", signedKey)
+
+	signedKey := gjson.Get(body, "data.signed_key")
+	return signedKey.String()
 }

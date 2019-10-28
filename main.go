@@ -40,17 +40,17 @@ func main() {
 	cmdConfigure := app.Command("configure", "Configure a new account.")
 	configureFlags := new(ConfigureFlags)
 	cmdConfigure.Flag("account", "The account name to save this configuration to.").Short('a').StringVar(&configureFlags.Account)
-	cmdConfigure.Flag("user", "The default user name to use for singing in with Vault.").Short('u').StringVar(&configureFlags.User)
-	cmdConfigure.Flag("vaultaddress", "The complete Vault address including the protocol, e.g. https://vault.example.com").Short('d').StringVar(&configureFlags.VaultAddress)
-	cmdConfigure.Flag("vaultendpoint", "The Vault endpoint to use to sign the SSH key, e.g. /ssh-client-signer/sign/ca").Short('e').StringVar(&configureFlags.VaultEndpoint)
-	cmdConfigure.Flag("defaultkey", "The default key to sign").Short('k').StringVar(&configureFlags.DefaultKey)
+	cmdConfigure.Flag("ldap-user", "The default user name to use for singing in with Vault.").Short('u').StringVar(&configureFlags.User)
+	cmdConfigure.Flag("vault-address", "The complete Vault address including the protocol, e.g. https://vault.example.com").Short('d').StringVar(&configureFlags.VaultAddress)
+	cmdConfigure.Flag("vault-endpoint", "The Vault endpoint to use to sign the SSH key, e.g. /ssh-client-signer/sign/ca").Short('e').StringVar(&configureFlags.VaultEndpoint)
+	cmdConfigure.Flag("default-key", "The default key to sign").Short('k').StringVar(&configureFlags.DefaultKey)
 
 	// `sign` command
 	cmdSign := app.Command("sign", "Sign a public key using Vault.")
 	signFlags := new(SignFlags)
 	cmdSign.Flag("account", "The account to generate a SSH certificate for").Short('a').StringVar(&signFlags.Account)
-	cmdSign.Flag("key", "The SSH public key to sign").StringVar(&signFlags.Key)
-	cmdSign.Flag("token", "Pass a Vault token instead of using one in the config").StringVar(&signFlags.Token)
+	cmdSign.Flag("key", "The SSH public key to sign").Short('k').StringVar(&signFlags.Key)
+	cmdSign.Flag("token", "Pass a Vault token instead of using one in the config").Short('t').StringVar(&signFlags.Token)
 
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 

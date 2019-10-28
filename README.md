@@ -26,3 +26,22 @@ Improvements:
 * remove JumpCloud; add general `credentials`
 * parameter for `sign` to save cert to a specific file
 * parameter for `sign` to force Vault token renewal
+
+# Cross Compilation
+
+Done via gox: github.com/mitchellh/gox
+
+Needs packages:
+* github.com/konsorten/go-windows-terminal-sequences
+
+```
+export VERSION=0.2
+export NAME=ldap2ssh
+
+gox -ldflags "-X main.Version=$(VERSION)" \
+    -osarch="darwin/amd64" \
+    -osarch="linux/amd64" \
+    -osarch="windows/amd64" \
+    -output "build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$NAME"\
+    .
+```

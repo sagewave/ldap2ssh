@@ -20,12 +20,7 @@ ldap2ssh sign -a wlw
 # Development
 
 Improvements:
-* path joining
-* create empty config if it not exists
 * tooling via make file
-* remove JumpCloud; add general `credentials`
-* parameter for `sign` to save cert to a specific file
-* parameter for `sign` to force Vault token renewal
 
 # Cross Compilation
 

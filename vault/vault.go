@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -12,10 +14,90 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Credentials for JumpCloud
+// Credentials for LDAP
 type Credentials struct {
 	Username string
 	Password string
+}
+
+// Login to vault
+func Login(creds Credentials, vaultAddr string) string {
+	url := fmt.Sprintf("%s/v1/auth/ldap/login/%s", vaultAddr, creds.Username)
+	jsonStr := fmt.Sprintf(`{"password":"%s"}`, creds.Password)
+	var jsonBytes = []byte(jsonStr)
+
+	body := makePostRequest(url, jsonBytes, "")
+	token := gjson.Get(body, "auth.client_token")
+	err := gjson.Get(body, "errors")
+	if err.Exists() {
+		log.Fatal("Vault returned an error during the login: ", err.String())
+	}
+
+	return token.String()
+}
+
+// TokenIsValid validates a given Vault token and checks its expiration
+func TokenIsValid(token string, vaultAddr string) bool {
+	if token == "" {
+		log.Debug("Empty token given for validation")
+		return false
+	}
+
+	url := buildURL(vaultAddr, "v1/auth/token/lookup-self")
+	body := makeGetRequest(url, token)
+	err := gjson.Get(body, "errors")
+	if err.Exists() {
+		log.Debug("Could not validate Vault token: ", err.String())
+		return false
+	}
+
+	ttl := gjson.Get(body, "data.ttl")
+	log.Debug("Vault token TTL: ", ttl.Int())
+	return ttl.Int() > 0
+}
+
+// SignSSHKey returns a signed SSH Key
+func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken string) string {
+	jsonStr := `{
+		"public_key": "%s",
+		"valid_principals": "ec2-user",
+		"extension": {
+			"permit-pty": "",
+			"permit-agent-forwarding": "",
+			"permit-port-forwarding": ""
+		}
+	}`
+
+	key, err := ioutil.ReadFile(keyfile)
+	if err != nil {
+		log.Panic("Could not read key file", err)
+	}
+
+	keystring := string(key)
+	keystring = strings.TrimSpace(keystring)
+	url := buildURL(vaultAddr, "v1", endpoint)
+	formatted := fmt.Sprintf(jsonStr, keystring)
+	payload := []byte(formatted)
+
+	body := makePostRequest(url, payload, vaultToken)
+	vaultErr := gjson.Get(body, "errors")
+	if vaultErr.Exists() {
+		log.Fatal("Could not create certificate: ", vaultErr.String())
+	}
+
+	signedKey := gjson.Get(body, "data.signed_key")
+	return signedKey.String()
+}
+
+func buildURL(base string, fragments ...string) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		log.Panic("Could not parse base url", err)
+	}
+
+	joinedFragments := path.Join(fragments...)
+	u.Path = path.Join(u.Path, joinedFragments)
+	return u.String()
 }
 
 func makePostRequest(url string, payload []byte, vaultToken string) string {
@@ -56,73 +138,4 @@ func makeGetRequest(url string, vaultToken string) string {
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debugf("Get request response body: %v", string(body))
 	return string(body)
-}
-
-// Login to vault
-func Login(creds Credentials, vaultAddr string) string {
-	url := fmt.Sprintf("%s/v1/auth/ldap/login/%s", vaultAddr, creds.Username)
-	jsonStr := fmt.Sprintf(`{"password":"%s"}`, creds.Password)
-	var jsonBytes = []byte(jsonStr)
-
-	body := makePostRequest(url, jsonBytes, "")
-	token := gjson.Get(body, "auth.client_token")
-	err := gjson.Get(body, "errors")
-	if err.Exists() {
-		log.Fatal("Vault returned an error during the login: ", err.String())
-	}
-
-	return token.String()
-}
-
-// TokenIsValid validates a given Vault token and checks its expiration
-func TokenIsValid(token string, vaultAddr string) bool {
-	if token == "" {
-		log.Debug("Empty token given for validation")
-		return false
-	}
-
-	url := fmt.Sprintf("%s/v1/auth/token/lookup-self", vaultAddr)
-	body := makeGetRequest(url, token)
-	err := gjson.Get(body, "errors")
-	if err.Exists() {
-		log.Debug("Could not validate Vault token: ", err.String())
-		return false
-	}
-
-	ttl := gjson.Get(body, "data.ttl")
-	log.Debug("Vault token TTL: ", ttl.Int())
-	return ttl.Int() > 0
-}
-
-// SignSSHKey returns a signed SSH Key
-func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken string) string {
-	jsonStr := `{
-		"public_key": "%s",
-		"valid_principals": "ec2-user",
-		"extension": {
-			"permit-pty": "",
-			"permit-agent-forwarding": "",
-			"permit-port-forwarding": ""
-		}
-	}`
-
-	key, err := ioutil.ReadFile(keyfile)
-	if err != nil {
-		log.Panic("Could not read key file", err)
-	}
-
-	keystring := string(key)
-	keystring = strings.TrimSpace(keystring)
-	url := fmt.Sprintf("%s/v1/%s", vaultAddr, endpoint)
-	formatted := fmt.Sprintf(jsonStr, keystring)
-	payload := []byte(formatted)
-
-	body := makePostRequest(url, payload, vaultToken)
-	vaultErr := gjson.Get(body, "errors")
-	if vaultErr.Exists() {
-		log.Fatal("Could not create certificate: ", vaultErr.String())
-	}
-
-	signedKey := gjson.Get(body, "data.signed_key")
-	return signedKey.String()
 }

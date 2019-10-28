@@ -51,6 +51,8 @@ func main() {
 	cmdSign.Flag("account", "The account to generate a SSH certificate for").Short('a').StringVar(&signFlags.Account)
 	cmdSign.Flag("key", "The SSH public key to sign").Short('k').StringVar(&signFlags.Key)
 	cmdSign.Flag("token", "Pass a Vault token instead of using one in the config").Short('t').StringVar(&signFlags.Token)
+	cmdSign.Flag("force", "Force Vault token renewal").Short('f').BoolVar(&signFlags.Force)
+	cmdSign.Flag("outfile", "Path to save the certificate to").Short('o').StringVar(&signFlags.Outfile)
 
 	command := kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -86,11 +88,11 @@ func sign(signFlags *SignFlags) {
 	}
 
 	sec := config.GetSection(account)
-	if vault.TokenIsValid(sec.VaultToken, sec.VaultAddress) {
+	if vault.TokenIsValid(sec.VaultToken, sec.VaultAddress) && !signFlags.Force {
 		fmt.Print("Using existing Vault token found in ~/.ldap2ssh\n\n")
 	} else {
 		fmt.Print("Missing or expired Vault token. Enter your JumpCloud credentials to render a new token:\n\n")
-		creds := cli.PromptJumpCloudCredentials(sec.User)
+		creds := cli.PromptLDAPCredentials(sec.User)
 		sec.VaultToken = vault.Login(creds, sec.VaultAddress)
 		config.SaveSection(account, &sec)
 	}
@@ -109,13 +111,16 @@ func sign(signFlags *SignFlags) {
 	// SIGN SSH KEY AND SAVE TO CERT
 	endpoint := sec.VaultEndpoint
 	signedKey := vault.SignSSHKey(keyfile, endpoint, sec.VaultAddress, sec.VaultToken)
-	keyName := strings.TrimSuffix(keyfile, ".pub")
-	certfile := keyName + "-cert.pub"
-	cert := []byte(signedKey)
-	ioutil.WriteFile(certfile, cert, 0600)
-	fmt.Println("\nWrote signed key to", certfile)
+	outfile := strings.TrimSuffix(keyfile, ".pub") + "-cert.pub"
+	if signFlags.Outfile != "" {
+		outfile = signFlags.Outfile
+	}
 
-	validUntil := utils.ValidateCert(certfile)
+	cert := []byte(signedKey)
+	ioutil.WriteFile(outfile, cert, 0600)
+	fmt.Println("\nWrote signed key to", outfile)
+
+	validUntil := utils.ValidateCert(outfile)
 	fmt.Println("Certificate is valid until", validUntil)
 }
 

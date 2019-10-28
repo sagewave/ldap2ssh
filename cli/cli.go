@@ -49,12 +49,10 @@ func Select(message string, options []string, defaultValue string) string {
 	return selected
 }
 
-// PromptJumpCloudCredentials asks for username and password
-func PromptJumpCloudCredentials(defaultUser string) vault.Credentials {
-	username := String("JumpCloud Username", defaultUser)
-	password := Password("JumpCloud Password")
+// PromptLDAPCredentials asks for username and password
+func PromptLDAPCredentials(defaultUser string) vault.Credentials {
 	return vault.Credentials{
-		username,
-		password,
+		Username: String("LDAP Username", defaultUser),
+		Password: Password("LDAP Password"),
 	}
 }

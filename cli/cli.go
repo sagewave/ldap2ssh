@@ -1,9 +1,9 @@
 package cli
 
 import (
+	// "github.com/AlecAivazis/survey"
 	"github.com/rldw/ldap2ssh/vault"
-
-	"github.com/AlecAivazis/survey"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 // Password ask for password
@@ -33,7 +33,7 @@ func StringRequired(message string) string {
 	prompt := &survey.Input{
 		Message: message,
 	}
-	survey.AskOne(prompt, &val, survey.WithValidator(survey.Required))
+	survey.AskOne(prompt, &val, survey.Required)
 	return val
 }
 
@@ -45,7 +45,7 @@ func Select(message string, options []string, defaultValue string) string {
 		Options: options,
 		Default: defaultValue,
 	}
-	survey.AskOne(prompt, &selected, survey.WithValidator(survey.Required))
+	survey.AskOne(prompt, &selected, survey.Required)
 	return selected
 }
 

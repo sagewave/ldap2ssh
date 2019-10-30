@@ -41,6 +41,7 @@ func main() {
 	configureFlags := new(ConfigureFlags)
 	cmdConfigure.Flag("account", "The account name to save this configuration to.").Short('a').StringVar(&configureFlags.Account)
 	cmdConfigure.Flag("ldap-user", "The default user name to use for singing in with Vault.").Short('u').StringVar(&configureFlags.User)
+	cmdConfigure.Flag("ssh-user", "The ssh user to login as on the remote host.").Short('s').StringVar(&configureFlags.SSHUser)
 	cmdConfigure.Flag("vault-address", "The complete Vault address including the protocol, e.g. https://vault.example.com").Short('d').StringVar(&configureFlags.VaultAddress)
 	cmdConfigure.Flag("vault-endpoint", "The Vault endpoint to use to sign the SSH key, e.g. /ssh-client-signer/sign/ca").Short('e').StringVar(&configureFlags.VaultEndpoint)
 	cmdConfigure.Flag("default-key", "The default key to sign").Short('k').StringVar(&configureFlags.DefaultKey)
@@ -108,9 +109,17 @@ func sign(signFlags *SignFlags) {
 	}
 	keyfile := filepath.Join(sshDir, chosenSSHKey)
 
+	// SSH USERNAME
+	sshUser := sec.SSHUser
+	if sshUser == "" {
+		sshUser = cli.StringRequired("SSH Username")
+	}
+
+	log.Debugf("Using ssh user %s", sshUser)
+
 	// SIGN SSH KEY AND SAVE TO CERT
 	endpoint := sec.VaultEndpoint
-	signedKey := vault.SignSSHKey(keyfile, endpoint, sec.VaultAddress, sec.VaultToken)
+	signedKey := vault.SignSSHKey(keyfile, sshUser, endpoint, sec.VaultAddress, sec.VaultToken)
 	outfile := strings.TrimSuffix(keyfile, ".pub") + "-cert.pub"
 	if signFlags.Outfile != "" {
 		outfile = signFlags.Outfile

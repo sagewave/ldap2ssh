@@ -13,6 +13,7 @@ type SignFlags struct {
 type ConfigureFlags struct {
 	Account       string
 	User          string
+	SSHUser       string
 	VaultAddress  string
 	VaultEndpoint string
 	DefaultKey    string

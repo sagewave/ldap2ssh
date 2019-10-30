@@ -15,6 +15,7 @@ import (
 // Section of the config file
 type Section struct {
 	User          string `ini:"username"`
+	SSHUser       string `ini:"ssh_user"`
 	VaultAddress  string `ini:"vault_address"`
 	VaultToken    string `ini:"vault_token"`
 	VaultEndpoint string `ini:"vault_endpoint"`
@@ -42,6 +43,7 @@ func GetSection(name string) Section {
 		VaultToken: "",
 		DefaultKey: "",
 		User:       "",
+		SSHUser:    "",
 	}
 	err := cfg.Section(name).MapTo(sec)
 	if err != nil {

@@ -57,10 +57,10 @@ func TokenIsValid(token string, vaultAddr string) bool {
 }
 
 // SignSSHKey returns a signed SSH Key
-func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken string) string {
+func SignSSHKey(keyfile string, sshUser string, endpoint string, vaultAddr string, vaultToken string) string {
 	jsonStr := `{
 		"public_key": "%s",
-		"valid_principals": "ec2-user",
+		"valid_principals": "%s",
 		"extension": {
 			"permit-pty": "",
 			"permit-agent-forwarding": "",
@@ -76,7 +76,7 @@ func SignSSHKey(keyfile string, endpoint string, vaultAddr string, vaultToken st
 	keystring := string(key)
 	keystring = strings.TrimSpace(keystring)
 	url := buildURL(vaultAddr, "v1", endpoint)
-	formatted := fmt.Sprintf(jsonStr, keystring)
+	formatted := fmt.Sprintf(jsonStr, keystring, sshUser)
 	payload := []byte(formatted)
 
 	body := makePostRequest(url, payload, vaultToken)

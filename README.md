@@ -14,32 +14,18 @@ ldap2ssh configure \
     --ldap-user 'billy.bob'
 
 # create the certificate and save it to ~/.ssh/{key_name}-cert.pub
-ldap2ssh sign -a wlw
+ldap2ssh sign -a myProject
 ```
 
 # Development
 
-Improvements:
-* tooling via make file
+To start developing run `make mod` to download all dependencies.
 
-# Cross Compilation
-
-Done via gox: github.com/mitchellh/gox
-
-Needs packages:
-* github.com/konsorten/go-windows-terminal-sequences
+To create a new release export the GitHub access token `export GITHUB_RELEASE_ACCESS_TOKEN="xxx"` and run:
 
 ```
-export VERSION=0.2
-export NAME=ldap2ssh
-
-gox -ldflags "-X main.Version=${VERSION}" \
-    -osarch="darwin/amd64" \
-    -osarch="linux/amd64" \
-    -osarch="windows/amd64" \
-    -output "build/{{.Dir}}_${VERSION}_{{.OS}}_{{.Arch}}/$NAME"\
-    .
-
-cd build/
-for dir in $(ls .); do tar czvf "$dir.tar.gz" "$dir"; done
+make clean
+make build
+make dist
+make release
 ```

@@ -1,10 +1,8 @@
 NAME=ldap2ssh
-VERSION=0.3
+VERSION=0.4
 
 BIN_DIR := $(CURDIR)/bin
 SOURCE_FILES?=$$(go list ./... | grep -v /vendor/)
-
-travis-ci: prepare build dist 
 
 install:
 	go install .
@@ -32,13 +30,16 @@ clean:
 	@rm -rf bin/
 
 mod:
-	GO111MODULE=on go mod download
-	GO111MODULE=on go mod tidy
+	go mod download
+	go mod tidy
 
 prepare:
-	GOBIN=$(BIN_DIR) GO111MODULE=on go get github.com/buildkite/github-release
-	GOBIN=$(BIN_DIR) GO111MODULE=on go get github.com/mitchellh/gox
-	GOBIN=$(BIN_DIR) GO111MODULE=on go get github.com/axw/gocov/gocov
-	GOBIN=$(BIN_DIR) GO111MODULE=on go get golang.org/x/tools/cmd/cover
+	GOBIN=$(BIN_DIR) go get github.com/buildkite/github-release
+	GOBIN=$(BIN_DIR) go get github.com/mitchellh/gox
+	GOBIN=$(BIN_DIR) go get github.com/axw/gocov/gocov
+	GOBIN=$(BIN_DIR) go get golang.org/x/tools/cmd/cover
+
+release: 
+	@$(BIN_DIR)/github-release "v$(VERSION)" dist/* --commit "$(git rev-parse HEAD)" --github-repository rldw/$(NAME)
 
 .PHONY: default prepare mod build dist clean 

@@ -19,7 +19,7 @@ import (
 
 var (
 	// Version tool version
-	Version = "0.3"
+	Version = "0.4"
 )
 
 func init() {

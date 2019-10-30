@@ -36,9 +36,9 @@ mod:
 	@go mod tidy
 
 prepare:
-	GOBIN=$(BIN_DIR) go install github.com/buildkite/github-release
-	GOBIN=$(BIN_DIR) go install github.com/mitchellh/gox
-	GOBIN=$(BIN_DIR) go install github.com/axw/gocov/gocov
-	GOBIN=$(BIN_DIR) go install golang.org/x/tools/cmd/cover
+	GOBIN=$(BIN_DIR) go get github.com/buildkite/github-release
+	GOBIN=$(BIN_DIR) go get github.com/mitchellh/gox
+	GOBIN=$(BIN_DIR) go get github.com/axw/gocov/gocov
+	GOBIN=$(BIN_DIR) go get golang.org/x/tools/cmd/cover
 
 .PHONY: default prepare mod build dist clean 

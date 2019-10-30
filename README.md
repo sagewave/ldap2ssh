@@ -33,10 +33,13 @@ Needs packages:
 export VERSION=0.2
 export NAME=ldap2ssh
 
-gox -ldflags "-X main.Version=$(VERSION)" \
+gox -ldflags "-X main.Version=${VERSION}" \
     -osarch="darwin/amd64" \
     -osarch="linux/amd64" \
     -osarch="windows/amd64" \
-    -output "build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$NAME"\
+    -output "build/{{.Dir}}_${VERSION}_{{.OS}}_{{.Arch}}/$NAME"\
     .
+
+cd build/
+for dir in $(ls .); do tar czvf "$dir.tar.gz" "$dir"; done
 ```

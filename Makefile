@@ -1,5 +1,5 @@
 NAME=ldap2ssh
-VERSION=0.4
+VERSION=0.5
 
 BIN_DIR := $(CURDIR)/bin
 SOURCE_FILES?=$$(go list ./... | grep -v /vendor/)
@@ -13,7 +13,7 @@ build: mod
 		-osarch="darwin/amd64" \
 		-osarch="linux/amd64" \
 		-osarch="windows/amd64" \
-		-output "build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$NAME" \
+		-output "build/{{.Dir}}_$(VERSION)_{{.OS}}_{{.Arch}}/$(NAME)" \
 		${SOURCE_FILES}
 
 dist:
